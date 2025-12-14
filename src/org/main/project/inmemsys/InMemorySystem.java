@@ -1,4 +1,4 @@
-package org.main.project;
+package org.main.project.inmemsys;
 
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;

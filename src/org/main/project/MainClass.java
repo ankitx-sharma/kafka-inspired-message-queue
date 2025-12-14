@@ -1,5 +1,6 @@
 package org.main.project;
 
+import org.main.project.inmemsys.InMemorySystem;
 
 /**
  * MainClass demonstrates a simple producer-consumer pattern using two threads

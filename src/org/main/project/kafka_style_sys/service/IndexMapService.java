@@ -1,4 +1,4 @@
-package org.main.project.logbased;
+package org.main.project.kafka_style_sys.service;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;

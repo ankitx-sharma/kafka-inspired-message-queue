@@ -1,21 +1,19 @@
-package org.main.project;
+package org.main.project.simple_msg_sys;
 
 import java.io.IOException;
 import java.util.Map;
 
-import org.main.project.logbased.IndexMapService;
-import org.main.project.logbased.LogBasedSystem;
+import org.main.project.kafka_style_sys.service.IndexMapService;
+import org.main.project.kafka_style_sys.service.WriteLogService;
 
 public class MainLogClass {
 	public static void main(String[] args) throws IOException{
-		LogBasedSystem log = new LogBasedSystem();
+		WriteLogService log = new WriteLogService();
 		IndexMapService service = new IndexMapService();
 		
 		for(int i=0;i<25;i++) {
 			log.appendMessageToLog("Message: "+i);
 		}
-		
-		log.endTheSystem();
 		
 		Map<Integer, Long> index = service.readIndexFromDisk(); 
 		

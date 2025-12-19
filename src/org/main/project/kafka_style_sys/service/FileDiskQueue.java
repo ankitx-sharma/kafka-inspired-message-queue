@@ -15,6 +15,23 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import org.main.project.kafka_style_sys.record.DiskRecord;
 
+/**
+ * File-based implementation of {@link DiskQueue}.
+ *
+ * <p>Records are stored sequentially in a single file using the format:
+ * <pre>
+ * [4 bytes length][UTF-8 payload]
+ * </pre>
+ *
+ * <p>This implementation is:
+ * <ul>
+ *   <li>Thread-safe (protected by a {@link ReentrantLock})</li>
+ *   <li>Append-only</li>
+ *   <li>FIFO ordered</li>
+ * </ul>
+ *
+ * <p>Processed records are tracked using read and commit positions.
+ */
 public class FileDiskQueue implements DiskQueue{
 	private final Path path;
 	private final ReentrantLock lock = new ReentrantLock(true);
@@ -24,6 +41,12 @@ public class FileDiskQueue implements DiskQueue{
 	private long readPos = 0L;
 	private long commitPos = 0L;
 	
+	 /**
+     * Creates or opens a file-backed queue at the given file name.
+     *
+     * @param fileName queue file path
+     * @throws IOException if the file cannot be created or opened
+     */
 	public FileDiskQueue(String fileName) throws IOException{
 		this.path = Paths.get(fileName);
 		open();
@@ -37,6 +60,15 @@ public class FileDiskQueue implements DiskQueue{
 		this.channel = FileChannel.open(path, CREATE, READ, WRITE);
 	}
 	
+	/**
+     * Appends a message to the end of the queue file.
+     *
+     * <p>The message is written as length-prefixed UTF-8 data
+     * and flushed to disk.
+     *
+     * @param msg message to append
+     * @throws IOException if writing fails
+     */
 	@Override
 	public void append(String msg) throws IOException {
 		lock.lock();
@@ -60,6 +92,15 @@ public class FileDiskQueue implements DiskQueue{
 		}
 	}
 	
+	/**
+     * Reads the next record from disk starting at the current read position.
+     *
+     * <p>If the end of file is reached, {@code null} is returned.
+     * Corrupted or incomplete records cause an {@link IOException}.
+     *
+     * @return next {@link DiskRecord}, or {@code null} if no data is available
+     * @throws IOException if reading fails or data is invalid
+     */
 	@Override
 	public DiskRecord poll() throws IOException {
 		lock.lock();
@@ -100,6 +141,14 @@ public class FileDiskQueue implements DiskQueue{
 		}
 	}
 	
+	/**
+     * Acknowledges processing progress by advancing the commit position.
+     *
+     * <p>Calling ack with an older position has no effect.
+     *
+     * @param nextPos file position after the processed record
+     * @throws IOException if acknowledgement fails
+     */
 	@Override
 	public void ack(long nextPos) throws IOException {
 		lock.lock();
@@ -111,6 +160,12 @@ public class FileDiskQueue implements DiskQueue{
 		}
 	}
 	
+	/**
+     * Checks whether all data in the file has been read.
+     *
+     * @return {@code true} if no unread records exist
+     * @throws IOException if the check fails
+     */
 	@Override
 	public boolean isEmpty() throws IOException {
 		lock.lock();
@@ -121,6 +176,11 @@ public class FileDiskQueue implements DiskQueue{
 		}
 	}
 	
+	/**
+     * Closes the file channel and deletes the underlying queue file.
+     *
+     * @throws IOException if closing or deletion fails
+     */
 	@Override
 	public void close() throws IOException {
 		lock.lock();

@@ -1,4 +1,4 @@
-package org.main.project.kafka_style_sys.worker;
+package org.main.engine.kafka_style_sys.worker;
 
 import java.io.IOException;
 import java.util.concurrent.BlockingQueue;
@@ -12,9 +12,9 @@ import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
-import org.main.project.kafka_style_sys.record.DiskRecord;
-import org.main.project.kafka_style_sys.service.DiskQueue;
-import org.main.project.kafka_style_sys.service.FileDiskQueue;
+import org.main.engine.kafka_style_sys.record.DiskRecord;
+import org.main.engine.kafka_style_sys.service.DiskQueue;
+import org.main.engine.kafka_style_sys.service.FileDiskQueue;
 
 /**
 * A small worker pool that executes tasks using a fixed {@link ThreadPoolExecutor}

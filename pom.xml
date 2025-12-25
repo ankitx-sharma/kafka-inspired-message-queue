@@ -13,4 +13,8 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
+    <modules>
+    	<module>messaging-engine</module>
+    	<module>messaging-api</module>
+    </modules>
 </project>

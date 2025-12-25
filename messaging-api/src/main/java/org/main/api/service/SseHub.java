@@ -1,5 +1,7 @@
 package org.main.api.service;
 
+import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -12,7 +14,16 @@ public class SseHub {
 	private final Set<SseEmitter> emitters = ConcurrentHashMap.newKeySet();
 	
 	public SseEmitter subscribe() {
-		return null;
+		// 0L = no timeout (browser/proxies may still close; UI should reconnect)
+		SseEmitter emitter = new SseEmitter(0L);
+		
+		emitters.add(emitter);
+		emitter.onCompletion(() -> emitters.remove(emitter));
+		emitter.onTimeout(() -> emitters.remove(emitter));
+		emitter.onError(e -> emitters.remove(emitter));
+		
+		sendToOne(emitter, new EventDto("system", "System connected", Instant.now().toString()));
+		return emitter;
 	}
 	
 	public void broadcast(EventDto event) {

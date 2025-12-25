@@ -1,4 +1,4 @@
-package org.main.engine.kafka_style_sys.service;
+package org.main.engine.service;
 
 import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.READ;
@@ -13,7 +13,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.concurrent.locks.ReentrantLock;
 
-import org.main.engine.kafka_style_sys.record.DiskRecord;
+import org.main.engine.dto.DiskRecord;
 
 /**
  * File-based implementation of {@link DiskQueue}.

@@ -1,8 +1,8 @@
-package org.main.engine.kafka_style_sys.service;
+package org.main.engine.service;
 
 import java.io.IOException;
 
-import org.main.engine.kafka_style_sys.record.DiskRecord;
+import org.main.engine.dto.DiskRecord;
 
 /**
  * A simple disk-backed FIFO queue abstraction.

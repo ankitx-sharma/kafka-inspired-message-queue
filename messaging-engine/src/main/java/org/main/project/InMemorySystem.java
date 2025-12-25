@@ -1,4 +1,4 @@
-package org.main.project.simple_msg_sys.inmemsys;
+package org.main.project;
 
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;

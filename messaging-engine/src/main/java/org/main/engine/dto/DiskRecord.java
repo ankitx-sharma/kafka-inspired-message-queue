@@ -1,3 +1,3 @@
-package org.main.engine.kafka_style_sys.record;
+package org.main.engine.dto;
 
 public record DiskRecord(long nextPos, String message) {}

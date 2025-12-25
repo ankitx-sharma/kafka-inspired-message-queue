@@ -1,9 +1,9 @@
-package org.main.engine.kafka_style_sys;
+package org.main.engine;
 
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import org.main.engine.kafka_style_sys.worker.WorkerThreadPool;
+import org.main.engine.worker.WorkerThreadPool;
 
 public class MainExecutorClass {
 

@@ -1,5 +1,5 @@
 package org.main.api.dto;
 
-public class Event {
+public class EventDto {
 
 }

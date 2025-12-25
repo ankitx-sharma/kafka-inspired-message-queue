@@ -1,5 +1,11 @@
 package org.main.api.dto;
 
-public class StatsResponse {
-
-}
+public record StatsResponse(
+		long submitted,
+		long completed,
+		long spilledToDisk,
+		long inMemoryQueueSize,
+		long diskSpoolSize,
+		int activeThreads,
+		int poolSize
+){}

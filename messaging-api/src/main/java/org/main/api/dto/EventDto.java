@@ -1,5 +1,7 @@
 package org.main.api.dto;
 
-public class EventDto {
-
-}
+public record EventDto(
+		String type,
+		String message,
+		String timestamp)
+{}

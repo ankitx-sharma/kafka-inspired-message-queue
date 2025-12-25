@@ -1,11 +1,13 @@
 package org.main.api.service;
 
+import java.io.IOException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.main.api.dto.EventDto;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -27,10 +29,24 @@ public class SseHub {
 	}
 	
 	public void broadcast(EventDto event) {
-		
+		for(SseEmitter emitter: emitters) {
+			try {
+				emitter.send(SseEmitter.event()
+						.name("message")
+						.data(event, MediaType.APPLICATION_JSON));
+			}catch(IOException ex) {
+				emitters.remove(emitter);
+			}
+		}
 	}
 	
 	private void sendToOne(SseEmitter emitter, EventDto event) {
-		
+		try {
+			emitter.send(SseEmitter.event()
+					.name("message")
+					.data(event, MediaType.APPLICATION_JSON));
+		}catch(IOException ex) {
+			emitters.remove(emitter);
+		}
 	}
 }

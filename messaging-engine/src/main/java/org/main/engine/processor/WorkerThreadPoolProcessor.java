@@ -1,6 +1,8 @@
 package org.main.engine.processor;
 
 import java.io.IOException;
+import java.time.Instant;
+import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.RejectedExecutionException;
@@ -8,11 +10,15 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 import org.main.engine.dto.DiskRecord;
+import org.main.engine.events.EngineEvent;
+import org.main.engine.events.EngineEventType;
+import org.main.engine.listener.EngineEventPublisher;
 import org.main.engine.service.DiskQueue;
 import org.main.engine.service.FileDiskQueue;
 
@@ -33,11 +39,14 @@ import org.main.engine.service.FileDiskQueue;
 public class WorkerThreadPoolProcessor {
 	private final ThreadPoolExecutor executor;
 	private final BlockingQueue<Runnable> queue;
+	
 	private DiskQueue fileQueue;
+	private EngineEventPublisher eventPublisher;
 	
 	private final Semaphore permits;
 	private final int capacity;
 	
+	private final AtomicLong idSeq = new AtomicLong(0);
 	private final AtomicBoolean running = new AtomicBoolean(true);
 	private final Thread drainerThread;
 	
@@ -51,9 +60,10 @@ public class WorkerThreadPoolProcessor {
      * @param queueCapacity max number of tasks that can wait in memory
      * @throws IOException if the disk queue cannot be created or opened
      */
-	public WorkerThreadPoolProcessor(int threads, int queueCapacity) throws IOException{
+	public WorkerThreadPoolProcessor(int threads, int queueCapacity, EngineEventPublisher eventPublisher) throws IOException{
 		this.fileQueue = new FileDiskQueue("tasks.queue");
 		this.queue = new LinkedBlockingQueue<>(queueCapacity);
+		this.eventPublisher = eventPublisher;
 		
 		this.executor = new ThreadPoolExecutor(threads, 
 											threads, 
@@ -83,7 +93,12 @@ public class WorkerThreadPoolProcessor {
      */
 	public void submitTask(String task) throws IOException, InterruptedException{
 		// Rule: If disk is NOT empty, always write new tasks to disk (disk priority)
+		String id = nextId();
+		publish(EngineEventType.SUBMITTED, id, task, Map.of());
+		
 		if(!fileQueue.isEmpty()) {
+			publish(EngineEventType.SPILLED_TO_DISK, id, task, Map.of("reason", "noCapacity"));
+			
 			fileQueue.append(task);
 			signalDrainer();
 			return;
@@ -91,7 +106,8 @@ public class WorkerThreadPoolProcessor {
 		
 		// Otherwise try to submit directly
 		if(!permits.tryAcquire()) {
-			System.out.println("No capacity -> write to disk: "+task);
+			publish(EngineEventType.SPILLED_TO_DISK, id, task, Map.of("reason", "noCapacity"));
+			
 			fileQueue.append(task);
 			signalDrainer();
 			return;
@@ -111,6 +127,9 @@ public class WorkerThreadPoolProcessor {
      */
 	private void executeUserTask(String task) throws InterruptedException, IOException{
 		try {
+			String id = nextId();
+			publish(EngineEventType.START_PROCESSING, id, task, Map.of("source", "memory"));
+			
 			executor.execute(() -> {
 				try {
 					System.out.println(task);
@@ -121,9 +140,12 @@ public class WorkerThreadPoolProcessor {
 					permits.release();
 					signalDrainer(); // wake drainer because capacity might now exist
 				}
+			publish(EngineEventType.COMPLETED, id, task, Map.of("source", "memory"));
 			});
 		}catch(RejectedExecutionException ex) {
 			permits.release();
+			publish(EngineEventType.SPILLED_TO_DISK, nextId(), task, Map.of("reason", "noCapacity"));
+			
 			fileQueue.append(task);
 			signalDrainer();
 			Thread.sleep(100);
@@ -140,7 +162,10 @@ public class WorkerThreadPoolProcessor {
      * @throws InterruptedException if interrupted while handling backoff/sleep
      */
 	private void executeDiskTask(DiskRecord rec) throws InterruptedException{
+		MessageData data = new MessageData(rec.message());
 		try {
+			publish(EngineEventType.START_PROCESSING, data.id, data.payload, Map.of("source", "disk"));
+			
 			executor.execute(() ->{
 				try {
 					System.out.println(rec.message());
@@ -156,10 +181,13 @@ public class WorkerThreadPoolProcessor {
 					permits.release();
 					signalDrainer();
 				}
+			publish(EngineEventType.COMPLETED, data.id, data.payload, Map.of("source", "disk"));
 			});
 		}catch(RejectedExecutionException ex) {
 			permits.release();
 			try {
+				publish(EngineEventType.SPILLED_TO_DISK, data.id, data.payload, Map.of("reason", "noCapacity"));
+				
 				fileQueue.append(rec.message());
 				signalDrainer();
 			}catch(IOException io) {
@@ -193,12 +221,14 @@ public class WorkerThreadPoolProcessor {
 				}
 				
 				// Now we have a permit -> safe to poll
-				DiskRecord task = fileQueue.poll();
+				DiskRecord task = fileQueue.poll();				
 				if(task == null) {
 					// Disk got empty between checks
 					permits.release();
 					continue;
 				}
+				MessageData data = new MessageData(task.message());
+				publish(EngineEventType.RECOVERED_FROM_DISK, data.id, data.payload, Map.of());
 				
 				executeDiskTask(task);
 			}catch(InterruptedException ex) {
@@ -265,5 +295,32 @@ public class WorkerThreadPoolProcessor {
 			executor.shutdownNow();
 		}
 		fileQueue.close();
+	}
+	
+	// Publisher methods added
+	private void publish(EngineEventType type, 
+						String id, 
+						String payload, 
+						Map<String, Object> meta) {
+		if(eventPublisher == null) return;
+		
+		eventPublisher.publish(new EngineEvent(type, id, payload, Instant.now(), meta));
+	}
+	
+	private String nextId() {
+		return "msg-" + idSeq.incrementAndGet();
+	}
+	
+	private class MessageData{
+		String id;
+		String payload;
+		
+		public MessageData(String message) {
+			if(message == null) return;
+			
+			int idx = message.indexOf("::");
+			this.id = idx > 0 ? message.substring(0, idx) : "unknown";
+			this.payload = idx > 0 ? message.substring(idx + 2) : message;
+		}
 	}
 }

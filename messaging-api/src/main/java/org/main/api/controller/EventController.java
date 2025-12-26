@@ -3,11 +3,13 @@ package org.main.api.controller;
 import java.io.IOException;
 import java.time.Instant;
 
+import org.main.api.config.RunConfigResolver;
 import org.main.api.dto.EventDto;
+import org.main.api.dto.RunConfig;
 import org.main.api.dto.RunRequest;
 import org.main.api.dto.StatsResponse;
+import org.main.api.service.RunService;
 import org.main.api.service.SseHub;
-import org.main.engine.processor.MessagingEngine;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -16,31 +18,32 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api")
 public class EventController {
-	private final MessagingEngine messagingEngine;
 	private final SseHub sseHUb;
+	private final RunService runService;
 	
-	public EventController(SseHub sseHub, MessagingEngine messagingEngine) {
+	public EventController(SseHub sseHub, RunService runService) {
 		this.sseHUb = sseHub;
-		this.messagingEngine = messagingEngine;
+		this.runService = runService;
 	}
 	
 	@PostMapping("/run")
-	public void runScenario(@RequestBody RunRequest request) {
-		long count = request.messageCount() != null? request.messageCount() : 0;
+	public void runScenario(@RequestBody RunRequest request) throws IOException {
+		RunConfig config = RunConfigResolver.resolve(request);
 		
-		// Broadcast event (UI can show this immediately)
 		sseHUb.broadcast(new EventDto(
-				"run", 
-				"started scenario=" + request.scenario()
-                + " count=" + count
-                + " threads=" + request.workerThreads()
-                + " delayMs=" + request.processingDelayMs(), 
-                Instant.now().toString()
-         ));
+					"run", 
+					"started scenario=" + config.scenario()
+	                + " count=" + config.messageCount()
+	                + " threads=" + config.threads()
+	                + " delayMs=" + config.processingDelayMs(), 
+	                Instant.now().toString()
+	    ));
 		
-		for(int i=0; i<=count; i++) {
+		var engine = runService.startNewEngine(config);
+		
+		for(int i=0; i<=config.messageCount(); i++) {
 			try {
-				messagingEngine.submitTask("hello- "+i);
+				engine.submitTask("hello- "+i);
 			} catch (IOException | InterruptedException e) {
 				e.printStackTrace();
 			}

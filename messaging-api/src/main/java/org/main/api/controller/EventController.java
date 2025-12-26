@@ -1,5 +1,6 @@
 package org.main.api.controller;
 
+import java.io.IOException;
 import java.time.Instant;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -7,6 +8,8 @@ import org.main.api.dto.EventDto;
 import org.main.api.dto.RunRequest;
 import org.main.api.dto.StatsResponse;
 import org.main.api.service.SseHub;
+import org.main.engine.processor.MessagingEngine;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -15,43 +18,33 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api")
 public class EventController {
+	private final MessagingEngine messagingEngine;
 	private final SseHub sseHUb;
 	
-	// Dummy counters just so /stats changes (replace with real Engine metrics later)
-	private final AtomicLong submitted = new AtomicLong(0);
-	private final AtomicLong completed = new AtomicLong(0);
-	private final AtomicLong spilledToDisk = new AtomicLong(0);
-	
-	public EventController(SseHub sseHub) {
+	public EventController(SseHub sseHub, MessagingEngine messagingEngine) {
 		this.sseHUb = sseHub;
+		this.messagingEngine = messagingEngine;
 	}
 	
 	@PostMapping("/run")
 	public void runScenario(@RequestBody RunRequest request) {
-		long add = request.messageCount() != null? request.messageCount() : 0;
-		submitted.addAndGet(add);
+		long count = request.messageCount() != null? request.messageCount() : 0;
 		
 		// Broadcast event (UI can show this immediately)
 		sseHUb.broadcast(new EventDto(
 				"run", 
 				"started scenario=" + request.scenario()
-                + " count=" + request.messageCount()
+                + " count=" + count
                 + " threads=" + request.workerThreads()
                 + " delayMs=" + request.processingDelayMs(), 
                 Instant.now().toString()
          ));
 		
-		// TODO (next step): call your real MessagingEngine here:
-        // engine.configureThreads(request.workerThreads());
-        // engine.setProcessingDelay(request.processingDelayMs());
-        // engine.submitBatch(...)
-		
-		// Dummy: simulate that some are completed/spilled (remove later)
-		if(add > 0) {
-			long dummyDone = Math.min(50, add);
-			completed.addAndGet(dummyDone);
-			if(add > 500) {
-				spilledToDisk.addAndGet(add - 500);
+		for(int i=0; i<=count; i++) {
+			try {
+				messagingEngine.submitTask("hello- "+i);
+			} catch (IOException | InterruptedException e) {
+				e.printStackTrace();
 			}
 		}
 	}
@@ -59,9 +52,9 @@ public class EventController {
 	public StatsResponse stats() {
 		// TODO (next step): return real Engine stats snapshot
 		return new StatsResponse(
-				submitted.get(), 
-				completed.get(), 
-				spilledToDisk.get(), 
+				0, 
+				0, 
+				0, 
 				0L, // inMemoryQueueSize
 				0L, // diskSpoolSize
 				0,  // activeThreads

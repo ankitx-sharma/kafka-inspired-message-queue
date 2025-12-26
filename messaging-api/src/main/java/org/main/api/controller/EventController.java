@@ -2,14 +2,12 @@ package org.main.api.controller;
 
 import java.io.IOException;
 import java.time.Instant;
-import java.util.concurrent.atomic.AtomicLong;
 
 import org.main.api.dto.EventDto;
 import org.main.api.dto.RunRequest;
 import org.main.api.dto.StatsResponse;
 import org.main.api.service.SseHub;
 import org.main.engine.processor.MessagingEngine;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;

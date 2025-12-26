@@ -3,7 +3,7 @@ package org.main.api.service;
 import java.io.IOException;
 
 import org.main.api.dto.EventDto;
-import org.main.api.dto.ScenarioPresetDto;
+import org.main.api.dto.RunConfig;
 import org.main.engine.processor.MessagingEngine;
 import org.springframework.stereotype.Service;
 
@@ -16,7 +16,7 @@ public class RunService {
 		this.sseHub = sseHub;
 	}
 	
-	public synchronized MessagingEngine startNewEngine(ScenarioPresetDto preset) throws IOException {
+	public synchronized MessagingEngine startNewEngine(RunConfig preset) throws IOException {
 		if(engine != null) {
 			try {
 				engine.shutDownGracefully();

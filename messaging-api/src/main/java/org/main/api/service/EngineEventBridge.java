@@ -4,7 +4,7 @@ import org.main.api.dto.EventDto;
 import org.main.engine.processor.MessagingEngine;
 import org.springframework.stereotype.Service;
 
-@Service
+//@Service
 public class EngineEventBridge {
 	
 	public EngineEventBridge(MessagingEngine engine, SseHub sseHub) {

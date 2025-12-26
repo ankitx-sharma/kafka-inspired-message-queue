@@ -45,6 +45,7 @@ public class WorkerThreadPoolProcessor {
 	
 	private final Semaphore permits;
 	private final int capacity;
+	private volatile long processingDelayMs;
 	
 	private final AtomicLong idSeq = new AtomicLong(0);
 	private final AtomicBoolean running = new AtomicBoolean(true);
@@ -60,7 +61,11 @@ public class WorkerThreadPoolProcessor {
      * @param queueCapacity max number of tasks that can wait in memory
      * @throws IOException if the disk queue cannot be created or opened
      */
-	public WorkerThreadPoolProcessor(int threads, int queueCapacity, EngineEventPublisher eventPublisher) throws IOException{
+	public WorkerThreadPoolProcessor(int threads, 
+									int queueCapacity, 
+									long processingDelayMs,
+									EngineEventPublisher eventPublisher) throws IOException{
+		if(processingDelayMs < 0) { throw new IllegalArgumentException("processingDelayMs must be more than 0"); }
 		this.fileQueue = new FileDiskQueue("tasks.queue");
 		this.queue = new LinkedBlockingQueue<>(queueCapacity);
 		this.eventPublisher = eventPublisher;
@@ -72,6 +77,7 @@ public class WorkerThreadPoolProcessor {
 		
 		this.capacity = threads + queueCapacity;
 		this.permits = new Semaphore(capacity, true);
+		this.processingDelayMs = processingDelayMs;
 		
 		this.drainerThread = new Thread(this::drainLoop, "disk-drainer");
 		this.drainerThread.start();
@@ -133,7 +139,7 @@ public class WorkerThreadPoolProcessor {
 			executor.execute(() -> {
 				try {
 					System.out.println(task);
-					Thread.sleep(10_000);
+					Thread.sleep(this.processingDelayMs);
 				}catch(InterruptedException ex) {
 					Thread.currentThread().interrupt();
 				}finally {
@@ -169,7 +175,7 @@ public class WorkerThreadPoolProcessor {
 			executor.execute(() ->{
 				try {
 					System.out.println(rec.message());
-					Thread.sleep(10_000);
+					Thread.sleep(this.processingDelayMs);
 				}catch(InterruptedException ex) {
 					Thread.currentThread().interrupt();
 				}finally {

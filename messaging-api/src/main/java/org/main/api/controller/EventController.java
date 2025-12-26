@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api")
-public class DemoController {
+public class EventController {
 	private final SseHub sseHUb;
 	
 	// Dummy counters just so /stats changes (replace with real Engine metrics later)
@@ -22,7 +22,7 @@ public class DemoController {
 	private final AtomicLong completed = new AtomicLong(0);
 	private final AtomicLong spilledToDisk = new AtomicLong(0);
 	
-	public DemoController(SseHub sseHub) {
+	public EventController(SseHub sseHub) {
 		this.sseHUb = sseHub;
 	}
 	

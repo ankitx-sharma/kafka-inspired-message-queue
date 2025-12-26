@@ -1,4 +1,4 @@
-package org.main.engine.worker;
+package org.main.engine.processor;
 
 import java.io.IOException;
 import java.util.concurrent.BlockingQueue;
@@ -30,7 +30,7 @@ import org.main.engine.service.FileDiskQueue;
 * <p>Capacity control is done via a {@link Semaphore} representing:
 * (worker threads + in-memory queue capacity).
 */
-public class WorkerThreadPool {
+public class WorkerThreadPoolProcessor {
 	private final ThreadPoolExecutor executor;
 	private final BlockingQueue<Runnable> queue;
 	private DiskQueue fileQueue;
@@ -51,7 +51,7 @@ public class WorkerThreadPool {
      * @param queueCapacity max number of tasks that can wait in memory
      * @throws IOException if the disk queue cannot be created or opened
      */
-	public WorkerThreadPool(int threads, int queueCapacity) throws IOException{
+	public WorkerThreadPoolProcessor(int threads, int queueCapacity) throws IOException{
 		this.fileQueue = new FileDiskQueue("tasks.queue");
 		this.queue = new LinkedBlockingQueue<>(queueCapacity);
 		

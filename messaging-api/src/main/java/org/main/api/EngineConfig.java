@@ -11,6 +11,6 @@ public class EngineConfig {
 
 	@Bean
 	public MessagingEngine messagingEngine() throws IOException {
-		return new MessagingEngine(4, 100);
+		return new MessagingEngine(4, 100, 10_000);
 	}
 }

@@ -8,9 +8,9 @@ public class MessagingEngine {
 	private final WorkerThreadPoolProcessor threadProcessor;
 	private final EngineEventPublisher eventPublisher;
 	
-	public MessagingEngine(int threadCount, int queueCapactiy) throws IOException {
+	public MessagingEngine(int threadCount, int queueCapactiy, long processingDelayMs) throws IOException {
 		this.eventPublisher = new EngineEventPublisher();
-		this.threadProcessor = new WorkerThreadPoolProcessor(threadCount, queueCapactiy, eventPublisher);
+		this.threadProcessor = new WorkerThreadPoolProcessor(threadCount, queueCapactiy, processingDelayMs, eventPublisher);
 	}
 	
 	public void submitTask(String message) throws IOException, InterruptedException {

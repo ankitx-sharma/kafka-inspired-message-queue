@@ -9,7 +9,7 @@ import org.main.engine.processor.WorkerThreadPoolProcessor;
 public class MainExecutorClass {
 
 	public static void main(String[] args) throws InterruptedException, IOException {
-		WorkerThreadPoolProcessor threadPool = new WorkerThreadPoolProcessor(4, 4, new EngineEventPublisher());
+		WorkerThreadPoolProcessor threadPool = new WorkerThreadPoolProcessor(4, 4, 10_000, new EngineEventPublisher());
 		
 		for(int i=0; i<20; i++) {
 			threadPool.submitTask(Task.generateTask());

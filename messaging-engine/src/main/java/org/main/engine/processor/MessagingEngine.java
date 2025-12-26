@@ -17,7 +17,7 @@ public class MessagingEngine {
 		this.threadProcessor.submitTask(message);
 	}
 	
-	public EngineEventPublisher getEventPublisher() {
+	public EngineEventPublisher events() {
 		return this.eventPublisher;
 	}
 	

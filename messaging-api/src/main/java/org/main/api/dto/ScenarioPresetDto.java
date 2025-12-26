@@ -1,6 +1,6 @@
 package org.main.api.dto;
 
-public record ScenarioPreset(
+public record ScenarioPresetDto(
 		Scenario scenario,
 		int threads,
 		int queueCapacity,

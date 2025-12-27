@@ -5,28 +5,31 @@ import java.time.Instant;
 
 import org.main.api.config.RunConfigResolver;
 import org.main.api.dto.EventDto;
+import org.main.api.dto.ResetRequest;
 import org.main.api.dto.RunConfig;
 import org.main.api.dto.RunRequest;
+import org.main.api.dto.RunStatusResponse;
 import org.main.api.dto.StatsResponse;
 import org.main.api.service.RunService;
 import org.main.api.service.SseHub;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api")
-public class EventController {
+@RequestMapping("/api/run")
+public class RunController {
 	private final SseHub sseHUb;
 	private final RunService runService;
 	
-	public EventController(SseHub sseHub, RunService runService) {
+	public RunController(SseHub sseHub, RunService runService) {
 		this.sseHUb = sseHub;
 		this.runService = runService;
 	}
 	
-	@PostMapping("/run")
+	@PostMapping("/start")
 	public void runScenario(@RequestBody RunRequest request) throws IOException {
 		RunConfig config = RunConfigResolver.resolve(request);
 		
@@ -39,15 +42,23 @@ public class EventController {
 	                Instant.now().toString()
 	    ));
 		
-		var engine = runService.startNewEngine(config);
-		
-		for(int i=0; i<=config.messageCount(); i++) {
-			try {
-				engine.submitTask("hello- "+i);
-			} catch (IOException | InterruptedException e) {
-				e.printStackTrace();
-			}
-		}
+		runService.startRun(config);
+	}
+	
+	@PostMapping("/stop")
+	public void stop() {
+		runService.stopRun();
+	}
+	
+	@PostMapping("/reset")
+	public void reset(@RequestBody(required = false) ResetRequest resetReq) {
+		boolean deleteDiskQueueFile = resetReq!=null & resetReq.deleteDiskQueueFile();
+		runService.reset(deleteDiskQueueFile);
+	}
+	
+	@GetMapping("/status")
+	public RunStatusResponse status() {
+		return runService.getRunStatus();
 	}
 	
 	public StatsResponse stats() {

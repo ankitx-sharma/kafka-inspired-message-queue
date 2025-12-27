@@ -53,7 +53,9 @@ public class RunController {
 	@PostMapping("/reset")
 	public void reset(@RequestBody(required = false) ResetRequest resetReq) {
 		boolean deleteDiskQueueFile = resetReq!=null & resetReq.deleteDiskQueueFile();
-		runService.reset(deleteDiskQueueFile);
+		try {
+			runService.reset(deleteDiskQueueFile);
+		} catch (IOException ignored) {}
 	}
 	
 	@GetMapping("/status")

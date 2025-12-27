@@ -24,7 +24,7 @@ public class RunService {
 		this.sseHub = sseHub;
 	}
 	
-	public synchronized MessagingEngine startNewEngine(RunConfig preset) throws IOException {
+	public synchronized void startRun(RunConfig preset) throws IOException {
 		if(runState == RunState.RUNNING || runState == RunState.STOPPING) {
 			throw new IllegalStateException("Run already active: "+ runId + " | " + runState );
 		}
@@ -49,7 +49,13 @@ public class RunService {
 					ev.timestamp().toString()));
 		});
 		
-		return engine;
+		for(int i=0; i<=preset.messageCount(); i++) {
+			try {
+				engine.submitTask("hello- "+i);
+			} catch (IOException | InterruptedException e) {
+				e.printStackTrace();
+			}
+		}
 	}
 	
 	public synchronized void stopRun() {

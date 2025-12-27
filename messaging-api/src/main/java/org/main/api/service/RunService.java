@@ -1,6 +1,8 @@
 package org.main.api.service;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import org.main.api.dto.EventDto;
 import org.main.api.dto.RunConfig;
@@ -72,14 +74,14 @@ public class RunService {
 		}
 	}
 	
-	public synchronized void reset(boolean deleteDiskQueueFile) {
+	public synchronized void reset(boolean deleteDiskQueueFile) throws IOException {
 		stopRun();
 		runId = null;
 		scenarioMode = NONE;
 		runState = RunState.IDLE;
 		
 		if(deleteDiskQueueFile) {
-			// Phase 4
+			Files.deleteIfExists(Path.of("tasks.queue"));
 		}
 	}
 	

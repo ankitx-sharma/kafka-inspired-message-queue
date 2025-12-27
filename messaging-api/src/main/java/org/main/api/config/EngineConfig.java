@@ -1,4 +1,4 @@
-package org.main.api;
+package org.main.api.config;
 
 import java.io.IOException;
 

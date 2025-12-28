@@ -20,6 +20,15 @@ export function Controls() {
         }
     }
 
+    async function startScenario(input){
+        setError("");
+        try{
+            await startRun({ scenario: input});
+        } catch (e){
+            setError(String(e));
+        } 
+    }
+
     async function stop() {
         setError("");
         try{

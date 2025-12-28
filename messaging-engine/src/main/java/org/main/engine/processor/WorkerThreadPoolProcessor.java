@@ -10,7 +10,6 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -47,7 +46,6 @@ public class WorkerThreadPoolProcessor {
 	private final int capacity;
 	private volatile long processingDelayMs;
 	
-	private final AtomicLong idSeq = new AtomicLong(0);
 	private final AtomicBoolean running = new AtomicBoolean(true);
 	private final Thread drainerThread;
 	
@@ -99,13 +97,13 @@ public class WorkerThreadPoolProcessor {
      */
 	public void submitTask(String task) throws IOException, InterruptedException{
 		// Rule: If disk is NOT empty, always write new tasks to disk (disk priority)
-		String id = nextId();
+		String id = nextId(task);
 		publish(EngineEventType.SUBMITTED, id, task, Map.of());
 		
 		if(!fileQueue.isEmpty()) {
 			publish(EngineEventType.SPILLED_TO_DISK, id, task, Map.of("reason", "noCapacity"));
 			
-			fileQueue.append(task);
+			fileQueue.append(id+"::"+task);
 			signalDrainer();
 			return;
 		}
@@ -114,7 +112,7 @@ public class WorkerThreadPoolProcessor {
 		if(!permits.tryAcquire()) {
 			publish(EngineEventType.SPILLED_TO_DISK, id, task, Map.of("reason", "noCapacity"));
 			
-			fileQueue.append(task);
+			fileQueue.append(id+"::"+task);
 			signalDrainer();
 			return;
 		}
@@ -133,7 +131,7 @@ public class WorkerThreadPoolProcessor {
      */
 	private void executeUserTask(String task) throws InterruptedException, IOException{
 		try {
-			String id = nextId();
+			String id = nextId(task);
 			publish(EngineEventType.START_PROCESSING, id, task, Map.of("source", "memory"));
 			
 			executor.execute(() -> {
@@ -150,9 +148,10 @@ public class WorkerThreadPoolProcessor {
 			});
 		}catch(RejectedExecutionException ex) {
 			permits.release();
-			publish(EngineEventType.SPILLED_TO_DISK, nextId(), task, Map.of("reason", "noCapacity"));
+			String id = nextId(task);
+			publish(EngineEventType.SPILLED_TO_DISK, id, task, Map.of("reason", "noCapacity"));
 			
-			fileQueue.append(task);
+			fileQueue.append(id+"::"+task);
 			signalDrainer();
 			Thread.sleep(100);
 		}
@@ -313,8 +312,11 @@ public class WorkerThreadPoolProcessor {
 		eventPublisher.publish(new EngineEvent(type, id, payload, Instant.now(), meta));
 	}
 	
-	private String nextId() {
-		return "msg-" + idSeq.incrementAndGet();
+	private String nextId(String message) {
+		int idx = message.indexOf("-");
+		String id = idx > 0 ? message.substring(idx+1) : "unknown";
+		
+		return "msg-" + id;
 	}
 	
 	private class MessageData{

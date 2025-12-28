@@ -7,6 +7,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import org.main.api.dto.EventDto;
 import org.springframework.http.MediaType;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -47,5 +48,10 @@ public class SseHub {
 		}catch(IOException ex) {
 			emitters.remove(emitter);
 		}
+	}
+	
+	@Scheduled(fixedRate = 2000)
+	public void heartbeatCall() {
+		broadcast(new EventDto("heartbeat", "ping", Instant.now().toString()));
 	}
 }

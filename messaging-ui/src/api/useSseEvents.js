@@ -1,15 +1,18 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export function useSseEvents(){
-    const [connected, setConnected] = useState(false);
     const [events, setEvents] = useState([]);
+    const esRef = useRef(null);
 
     useEffect(() => {
         const es = new EventSource("api/events/stream");
-        es.onopen = () => setConnected = true;
-        es.onmessage = (msg) => {
+        esRef.current = es;
+
+        const onAnyMessage = (msg) => {
             try{
                 const data = JSON.parse(msg.data);
+                if(data.type == "heartbeat") return; 
+
                 setEvents((prev) => [{ ...data, id: crypto.randomUUID() }, ...prev].slice(0,300));
             }catch {
                 setEvents((prev) => [{ type: "raw", 
@@ -19,10 +22,19 @@ export function useSseEvents(){
             }
         };
 
-        es.onerror = () => setConnected(false);
+        es.onmessage = onAnyMessage;
+        es.addEventListener("message", onAnyMessage);
 
-        return () => es.close();
+        es.onerror = () => { 
+            console.log("[SSE error]", e);
+        };
+
+        return () => {
+            es.close();
+            esRef.current = null;
+        };
+
     }, []);
 
-    return { connected, events, clear: () => setEvents([]) };
+    return { events, clear: () => setEvents([]) };
 }

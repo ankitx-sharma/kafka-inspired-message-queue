@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { SCENARIO_PRESETS } from "../api/scenarioPresets";
 import { startRun, stopRun, resetRun } from "../api/client";
 
 export function Controls() {
@@ -20,6 +21,15 @@ export function Controls() {
         }
     }
 
+    async function startScenario(input){
+        setError("");
+        try{
+            await startRun({ scenario: input});
+        } catch (e){
+            setError(String(e));
+        } 
+    }
+
     async function stop() {
         setError("");
         try{
@@ -38,15 +48,29 @@ export function Controls() {
         }
     }
 
+    function applyScenarioToFields(input) {
+        const preset = SCENARIO_PRESETS[input];
+        if(!preset) return;
+        setCustom(preset);
+    }
+
     return (
         <div style={{ border: "1px solid #ddd", padding: 12, borderRadius: 12}}>
             <h2>Controls</h2>
 
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap"}}>
-                <button onClick={() => startScenario("A")}>Scenario A</button>
-                <button onClick={() => startScenario("B")}>Scenario B</button>
-                <button onClick={() => startScenario("C")}>Scenario C</button>
-                <button onClick={() => startScenario("D")}>Scenario D</button>
+                <button onClick={() => { applyScenarioToFields("A"); startScenario("A"); }}>
+                    Scenario A
+                </button>
+                <button onClick={() =>{ applyScenarioToFields("B"); startScenario("B"); }}>
+                    Scenario B
+                </button>
+                <button onClick={() => { applyScenarioToFields("C"); startScenario("C"); }}>
+                    Scenario C
+                </button>
+                <button onClick={() => { applyScenarioToFields("D"); startScenario("D"); }}>
+                    Scenario D
+                </button>
                 <button onClick={stop}>Stop Program</button>
                 <button onClick={() => reset(false)}>Reset Program</button>
                 <button onClick={() => reset(true)}>Reset Program and Clear Disk</button>

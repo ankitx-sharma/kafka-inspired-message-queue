@@ -7,6 +7,7 @@ import java.nio.file.Path;
 import org.main.api.dto.EventDto;
 import org.main.api.dto.RunConfig;
 import org.main.api.dto.RunStatusResponse;
+import org.main.engine.events.EngineEventType;
 import org.main.engine.processor.MessagingEngine;
 import org.springframework.stereotype.Service;
 
@@ -49,6 +50,15 @@ public class RunService {
 					ev.type().name(), 
 					ev.messageId() + "|" + ev.message(), 
 					ev.timestamp().toString()));
+			
+			//lifecycle transition
+			if(EngineEventType.RUN_IDLE.equals(ev.type())) {
+				synchronized (this) {
+					if(runState == RunState.RUNNING) {
+						runState = RunState.IDLE; // or STOPPED -> IDLE depending on your lifecycle
+					}
+				}
+			}
 		});
 		
 		for(int i=0; i<=preset.messageCount(); i++) {

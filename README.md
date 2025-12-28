@@ -1,5 +1,7 @@
 # Disk-Backed Message Processing System (Kafka-Inspired)
 
+<img src="assets/ui_screen.png" alt="Project Title" width="1000" align="center">
+
 ## Overview
 This project implements a **Kafka-inspired message processing system** in pure Java.  
 It focuses on **backpressure**, **bounded concurrency**, **disk persistence**, and **graceful shutdown**.

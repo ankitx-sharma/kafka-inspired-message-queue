@@ -4,7 +4,7 @@ import { useSseEvents } from "./api/useSseEvents";
 import { useRunStatus } from "./api/useRunState";
 
 function App() {
-  const{ connected, events, clear } = useSseEvents();
+  const{ events, clear } = useSseEvents();
   const status = useRunStatus();
 
   return (
@@ -17,7 +17,7 @@ function App() {
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr", gap: 14 }}>
         <Controls />
-        <EventFeed connected={connected} events={events} onClear={clear} />
+        <EventFeed events={events} onClear={clear} />
       </div>
     </div>
   );

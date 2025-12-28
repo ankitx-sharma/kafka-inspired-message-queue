@@ -1,10 +1,8 @@
-export function EventFeed({ connected, events, onClear }){
+export function EventFeed({ events, onClear }){
     return (
         <div style={{ border: "1px solid #ddd", padding: 12, borderRadius: 12}}>
             <h2>Live Event Feed</h2>
             <p>
-                SSE: <b>{connected ? "connected"  : "disconnected"}</b>
-                {" "}
                 <button style={{ marginLeft: 10 }} onClick={onClear}>Clear</button>
             </p>
 

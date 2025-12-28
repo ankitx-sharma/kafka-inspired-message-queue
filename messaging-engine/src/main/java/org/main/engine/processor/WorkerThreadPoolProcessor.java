@@ -145,7 +145,6 @@ public class WorkerThreadPoolProcessor {
 			
 			executor.execute(() -> {
 				try {
-					System.out.println(task);
 					Thread.sleep(this.processingDelayMs);
 				}catch(InterruptedException ex) {
 					Thread.currentThread().interrupt();
@@ -182,7 +181,6 @@ public class WorkerThreadPoolProcessor {
 			
 			executor.execute(() ->{
 				try {
-					System.out.println(rec.message());
 					Thread.sleep(this.processingDelayMs);
 				}catch(InterruptedException ex) {
 					Thread.currentThread().interrupt();
@@ -331,7 +329,7 @@ public class WorkerThreadPoolProcessor {
 					idleEmitted.set(false);
 				}
 				
-				Thread.sleep(250);
+				Thread.sleep(1000);
 			} catch(InterruptedException ex) {
 				Thread.currentThread().interrupt();
 				break;

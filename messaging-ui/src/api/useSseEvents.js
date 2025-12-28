@@ -32,6 +32,8 @@ export function useSseEvents(){
 
                 try{
                     const data = JSON.parse(msg.data);
+                    if(data.type == "heartbeat") return; 
+
                     setEvents((prev) => [{ ...data, id: crypto.randomUUID() }, ...prev].slice(0,300));
                 }catch {
                     setEvents((prev) => [{ type: "raw", 
@@ -58,7 +60,7 @@ export function useSseEvents(){
             if(Date.now - last > 5000){
                 setConnected(false);
             }
-        }, 5000);
+        }, 1000);
 
         return () => {
             clearInterval(watchdog);

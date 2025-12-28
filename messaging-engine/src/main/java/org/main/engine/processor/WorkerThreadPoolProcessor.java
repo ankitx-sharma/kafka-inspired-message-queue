@@ -43,11 +43,16 @@ public class WorkerThreadPoolProcessor {
 	private EngineEventPublisher eventPublisher;
 	
 	private final Semaphore permits;
-	private final int capacity;
 	private volatile long processingDelayMs;
+	private final int threadCount;
+	private final int queueCapactiy;
 	
 	private final AtomicBoolean running = new AtomicBoolean(true);
+	private final AtomicBoolean idleWatchRunning = new AtomicBoolean(true);
+	private final AtomicBoolean idleEmitted = new AtomicBoolean(false);
+	
 	private final Thread drainerThread;
+	private final Thread idleWatchThread;
 	
 	private final Lock lock = new ReentrantLock();
 	private final Condition wakeUp = lock.newCondition();
@@ -73,12 +78,16 @@ public class WorkerThreadPoolProcessor {
 											0L, TimeUnit.MILLISECONDS, 
 											queue);
 		
-		this.capacity = threads + queueCapacity;
-		this.permits = new Semaphore(capacity, true);
+		this.threadCount = threads;
+		this.queueCapactiy = queueCapacity;
+		this.permits = new Semaphore(threads + queueCapacity, true);
 		this.processingDelayMs = processingDelayMs;
 		
 		this.drainerThread = new Thread(this::drainLoop, "disk-drainer");
 		this.drainerThread.start();
+		
+		this.idleWatchThread = new Thread(this::idleWatchLoop, "idle-watcher");
+		this.idleWatchThread.start();
 	}
 	
 	/**
@@ -292,14 +301,55 @@ public class WorkerThreadPoolProcessor {
 		}
 		running.set(false);
 		signalDrainer();
+		
 		drainerThread.interrupt();
 		drainerThread.join();
+		
+		idleWatchRunning.set(false);
+		idleWatchThread.interrupt();
+		idleWatchThread.join();
 		
 		executor.shutdown();
 		if(!executor.awaitTermination(500_000, TimeUnit.MILLISECONDS)) {
 			executor.shutdownNow();
 		}
 		fileQueue.close();
+	}
+	
+	private void idleWatchLoop() {
+		while(idleWatchRunning.get()) {
+			try {
+				// Only emit once per "run": emit when idle, reset when activity happens again
+				boolean idle = idIdleNow();
+				
+				if(idle && !idleEmitted.get()) {
+					publish(EngineEventType.RUN_IDLE, "run", "engine is idle", Map.of());
+					idleEmitted.set(true);
+				}
+				
+				if(!idle && idleEmitted.get()) {
+					idleEmitted.set(false);
+				}
+				
+				Thread.sleep(250);
+			} catch(InterruptedException ex) {
+				Thread.currentThread().interrupt();
+				break;
+			} catch(Exception ignored) {}
+		}
+	}
+	
+	private boolean idIdleNow(){
+		boolean queueEmpty = this.queue.isEmpty();
+		boolean noActiveThreads = (this.executor.getActiveCount() == 0);
+		boolean noPermitActive = (this.permits.availablePermits() == (this.threadCount + this.queueCapactiy));
+		
+		try {
+			boolean diskEmpty = this.fileQueue.isEmpty();
+			return queueEmpty & noActiveThreads & diskEmpty & noPermitActive;
+		}catch(IOException ignored) {}
+		
+		return queueEmpty & noActiveThreads & noPermitActive;
 	}
 	
 	// Publisher methods added

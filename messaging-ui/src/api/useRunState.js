@@ -15,7 +15,7 @@ export function useRunStatus(){
         }
 
         poll();
-        const t = setInterval(poll, 5000);
+        const t = setInterval(poll, 100);
         return () => {
             alive = false;
             clearInterval(t);

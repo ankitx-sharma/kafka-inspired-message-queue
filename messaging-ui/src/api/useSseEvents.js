@@ -6,7 +6,8 @@ export function useSseEvents(){
 
     useEffect(() => {
         const es = new EventSource("api/events/stream");
-        es.onopen = () => setConnected = true;
+
+        es.onopen = () => { setConnected(true); }
         es.onmessage = (msg) => {
             try{
                 const data = JSON.parse(msg.data);

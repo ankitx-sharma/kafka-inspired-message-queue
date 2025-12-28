@@ -52,6 +52,6 @@ public class SseHub {
 	
 	@Scheduled(fixedRate = 2000)
 	public void heartbeatCall() {
-		broadcast(new EventDto("heartBeat", "ping", Instant.now().toString()));
+		broadcast(new EventDto("heartbeat", "ping", Instant.now().toString()));
 	}
 }

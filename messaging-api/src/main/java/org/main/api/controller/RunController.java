@@ -62,17 +62,4 @@ public class RunController {
 	public RunStatusResponse status() {
 		return runService.getRunStatus();
 	}
-	
-	public StatsResponse stats() {
-		// TODO (next step): return real Engine stats snapshot
-		return new StatsResponse(
-				0, 
-				0, 
-				0, 
-				0L, // inMemoryQueueSize
-				0L, // diskSpoolSize
-				0,  // activeThreads
-				0	// poolSize
-			);
-	}
 }

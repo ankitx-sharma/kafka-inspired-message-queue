@@ -6,6 +6,7 @@ import static java.nio.file.StandardOpenOption.WRITE;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.channels.ClosedByInterruptException;
 import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -171,7 +172,10 @@ public class FileDiskQueue implements DiskQueue{
 		lock.lock();
 		try {
 			return readPos >= channel.size();
-		}finally {
+		} catch(ClosedByInterruptException ex) {
+			Thread.currentThread().interrupt();
+			return true;
+		} finally {
 			lock.unlock();
 		}
 	}

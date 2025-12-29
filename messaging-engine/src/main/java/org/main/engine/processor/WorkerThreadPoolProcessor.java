@@ -50,6 +50,7 @@ public class WorkerThreadPoolProcessor {
 	private final AtomicBoolean running = new AtomicBoolean(true);
 	private final AtomicBoolean idleWatchRunning = new AtomicBoolean(true);
 	private final AtomicBoolean idleEmitted = new AtomicBoolean(false);
+	private final AtomicBoolean hasSeenWork = new AtomicBoolean(false);
 	
 	private final Thread drainerThread;
 	private final Thread idleWatchThread;
@@ -110,9 +111,10 @@ public class WorkerThreadPoolProcessor {
 		publish(EngineEventType.SUBMITTED_TASK_FOR_EXECUTION, id, task, Map.of());
 		
 		if(!fileQueue.isEmpty()) {
-			publish(EngineEventType.TASK_SPILLED_TO_DISK, id, task, Map.of("reason", "noCapacity"));
+			publish(EngineEventType.TASK_SPILLED_TO_DISK, id, task, Map.of("reason", "diskNotEmpty"));
 			
 			fileQueue.append(id+"::"+task);
+			signalIdleWatcher();
 			signalDrainer();
 			return;
 		}
@@ -122,11 +124,13 @@ public class WorkerThreadPoolProcessor {
 			publish(EngineEventType.TASK_SPILLED_TO_DISK, id, task, Map.of("reason", "noCapacity"));
 			
 			fileQueue.append(id+"::"+task);
+			signalIdleWatcher();
 			signalDrainer();
 			return;
 		}
 		
-		executeUserTask(task);
+		executeUserTask(id, task);
+		signalIdleWatcher();
 	}
 	
 	/**
@@ -138,26 +142,23 @@ public class WorkerThreadPoolProcessor {
      * @throws InterruptedException if interrupted while handling backoff/sleep
      * @throws IOException if writing to the disk queue fails after rejection
      */
-	private void executeUserTask(String task) throws InterruptedException, IOException{
+	private void executeUserTask(String id, String task) throws InterruptedException, IOException{
 		try {
-			String id = nextId(task);
-			publish(EngineEventType.STARTED_TASK_PROCESSING, id, task, Map.of("source", "memory"));
-			
 			executor.execute(() -> {
+				publish(EngineEventType.STARTED_TASK_PROCESSING, id, task, Map.of("source", "memory"));
 				try {
 					Thread.sleep(this.processingDelayMs);
 				}catch(InterruptedException ex) {
 					Thread.currentThread().interrupt();
 				}finally {
 					permits.release();
+					publish(EngineEventType.TASK_COMPLETED, id, task, Map.of("source", "memory"));
 					signalDrainer(); // wake drainer because capacity might now exist
 				}
-			publish(EngineEventType.TASK_COMPLETED, id, task, Map.of("source", "memory"));
 			});
 		}catch(RejectedExecutionException ex) {
 			permits.release();
-			String id = nextId(task);
-			publish(EngineEventType.TASK_SPILLED_TO_DISK, id, task, Map.of("reason", "noCapacity"));
+			publish(EngineEventType.TASK_SPILLED_TO_DISK, id, task, Map.of("reason", "rejected"));
 			
 			fileQueue.append(id+"::"+task);
 			signalDrainer();
@@ -266,6 +267,28 @@ public class WorkerThreadPoolProcessor {
 		}
 	}
 	
+	private void signalIdleWatcher() {
+		hasSeenWork.set(true);
+		
+		lock.lock();
+		try {
+			wakeUp.signalAll();
+		} finally {
+			lock.unlock();
+		}
+	}
+	
+	private void waitForWorkSignal() throws InterruptedException {
+		lock.lock();
+		try {
+			while(!hasSeenWork.get() && idleWatchRunning.get()) {
+				wakeUp.await();
+			}
+		} finally {
+			lock.unlock();
+		}	
+	}
+	
 	/**
      * Waits for a wake-up signal (or timeout) to avoid busy-spinning when disk is empty.
      *
@@ -279,6 +302,10 @@ public class WorkerThreadPoolProcessor {
 		}finally {
 			lock.unlock();
 		}
+	}
+	
+	private void publishRunIdle() {
+		publish(EngineEventType.RUN_IDLE, "run", "engine is idle", Map.of());
 	}
 	
 	/**
@@ -304,6 +331,7 @@ public class WorkerThreadPoolProcessor {
 		drainerThread.join();
 		
 		idleWatchRunning.set(false);
+		signalIdleWatcher();
 		idleWatchThread.interrupt();
 		idleWatchThread.join();
 		
@@ -317,19 +345,27 @@ public class WorkerThreadPoolProcessor {
 	private void idleWatchLoop() {
 		while(idleWatchRunning.get()) {
 			try {
-				// Only emit once per "run": emit when idle, reset when activity happens again
-				boolean idle = idIdleNow();
+				// 1) Sleep until we have received at least one "work signal"
+				waitForWorkSignal();
 				
-				if(idle && !idleEmitted.get()) {
-					publish(EngineEventType.RUN_IDLE, "run", "engine is idle", Map.of());
-					idleEmitted.set(true);
+				while(idleWatchRunning.get()) {
+					
+					if(isIdleNow()) {
+						if(!idleEmitted.getAndSet(true)) {
+							publishRunIdle();
+						}
+						
+						// reset workSignal and go back to sleep until next submit
+						hasSeenWork.set(false);
+						break;
+					} else {
+						// not idle yet: allow future idle emission
+						idleEmitted.set(false);
+						
+						// avoid busy spinning; wait for signals or timeout
+						awaitSignal(300);
+					}
 				}
-				
-				if(!idle && idleEmitted.get()) {
-					idleEmitted.set(false);
-				}
-				
-				Thread.sleep(1000);
 			} catch(InterruptedException ex) {
 				Thread.currentThread().interrupt();
 				break;
@@ -337,7 +373,7 @@ public class WorkerThreadPoolProcessor {
 		}
 	}
 	
-	private boolean idIdleNow(){
+	private boolean isIdleNow(){
 		boolean queueEmpty = this.queue.isEmpty();
 		boolean noActiveThreads = (this.executor.getActiveCount() == 0);
 		boolean noPermitActive = (this.permits.availablePermits() == (this.threadCount + this.queueCapactiy));

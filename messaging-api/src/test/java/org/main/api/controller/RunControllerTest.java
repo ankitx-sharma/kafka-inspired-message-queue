@@ -73,12 +73,21 @@ public class RunControllerTest {
 	
 	@Test
 	void reset_withoutBody_shouldNotFail() throws Exception {
-		mockMvc.perform(post("/api/run/reset"))
+		String body = """
+				{
+					"deleteDiskQueueFile": false
+				}	
+				""";
+		
+		mockMvc.perform(post("/api/run/reset")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(body))
 			.andExpect(status().isOk());
 		
 		verify(runService).reset(false);
 	}
 	
+	@Test
 	void status_shouldReturnJsonFromService() throws Exception {
 		when(runService.getRunStatus()).thenReturn(new RunStatusResponse("RUNNING", "abc-123", "CUSTOM"));
 		

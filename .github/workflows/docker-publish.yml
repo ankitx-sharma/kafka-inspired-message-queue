@@ -1,4 +1,4 @@
-name: Publish Docker images to GHCR
+name: Docker images publisher
 
 on:
   push:

@@ -204,8 +204,6 @@ Shutdown sequence (recommended):
 Result: **deterministic shutdown**, predictable behavior under load, and no silent data loss
 (when using at-least-once semantics + replayable disk buffer).
 
-
-
 ---
 
 ## Possible Extensions
@@ -217,5 +215,22 @@ This project is intentionally minimal and can be extended in many directions, su
 - Rate limiting or throttling
 - Monitoring and logging
 - WebSocket support
+
+## Contributing
+Contributions are welcome.
+To contribute:
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes with clear commits
+4. Open a pull request with a concise description
+
+Please ensure:
+- Code is clean and readable
+- Changes are well-scoped
+- Commits are meaningful
+
+## Feedback and Support
+
+If you find an issue, have a suggestion, or want to discuss improvements, please open an issue in the repository.
 - Automated testing (unit and integration)
 - UI/UX improvements

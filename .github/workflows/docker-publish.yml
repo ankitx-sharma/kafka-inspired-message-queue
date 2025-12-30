@@ -1,4 +1,4 @@
-name: Docker images publisher
+name: Publish Docker Images to Github Repository
 
 on:
   push:

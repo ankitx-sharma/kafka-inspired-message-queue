@@ -42,6 +42,7 @@ Ensure the following tools are installed:
 
 ## Running the Project
 **Option 1: Run with Docker (Recommended)**
+
 This is the easiest and most consistent way to run the entire system.
 ```
 docker-compose up --build
@@ -50,43 +51,23 @@ docker-compose up --build
 - Backend API: http://localhost:8080
 - Frontend UI: http://localhost:5173
 
----
+<br>
 
-## Key Concepts
-- Backpressure using `Semaphore`
-- Bounded `ThreadPoolExecutor`
-- Disk-backed queue with file persistence
-- Explicit locking with `ReentrantLock` and `Condition`
-- Graceful shutdown without task loss
-- Producer / consumer decoupling
+**Option 2: Run Locally (Without Docker)**
 
----
+Start the Backend
+```
+cd messaging-api
+mvn clean package
+java -jar target/*.jar
+```
 
-## Features
-
-### Kafka-Style System
-- **Disk-backed queue**
-  - Tasks are persisted when memory capacity is exceeded
-  - Prevents message loss during load spikes
-- **Explicit backpressure**
-  - Global capacity defined as `workerThreads + inMemoryQueueCapacity`
-  - Producers must acquire permits before submitting tasks
-- **Custom worker thread pool**
-  - Fixed number of worker threads
-  - Bounded in-memory queue
-- **Dedicated drainer thread**
-  - Restores tasks from disk when capacity becomes available
-  - Uses `Condition` for efficient waiting (no busy-waiting)
-- **Graceful shutdown**
-  - Stops accepting new tasks
-  - Drains disk queue completely
-  - Terminates executor cleanly
-
-### Simple In-Memory System
-- In-memory queue only
-- No persistence
-- No backpressure
-- Included as a baseline comparison
+Start the Frontend
+```
+cd messaging-ui
+npm install
+npm run dev
+```
 
 ---
 
@@ -123,6 +104,28 @@ messaging-engine/
 
 ---
 
+## API Usage
+
+The backend exposes REST endpoints that can be accessed via:
+- The provided Web UI
+- Tools like Postman or curl
+- Custom client applications
+
+Typical use cases include:
+- Sending messages
+- Retrieving messages
+- Testing API behavior and flows
+
+## Key Concepts
+- Backpressure using `Semaphore`
+- Bounded `ThreadPoolExecutor`
+- Disk-backed queue with file persistence
+- Explicit locking with `ReentrantLock` and `Condition`
+- Graceful shutdown without task loss
+- Producer / consumer decoupling
+
+---
+
 ## Architecture Overview
 1. Producer submits a task
 2. A `Semaphore` enforces global capacity
@@ -131,71 +134,88 @@ messaging-engine/
 5. Drainer thread moves tasks from disk back into memory
 6. Workers process tasks and release permits
 
-This guarantees:
-- Bounded memory usage
-- No task loss
-- Predictable behavior under load
+### Design Decisions
+
+#### Disk-Backed Queue (Overflow Buffer)
+- Disk acts as a pressure buffer, not the primary queue (RAM-first, disk-overflow)
+- Append-only write path for high throughput and low fragmentation
+- Uses a record format (length-prefix + payload) to support deterministic replay
+- **Crash-safe recovery**:
+  - On startup, the system replays unread records from the last known read offset
+  - Partial/corrupt trailing records are detected and ignored safely
+- **Thread-safe by design**:
+  - Single-writer append path (or explicit locking if multiple producers)
+  - Separate read pointer for the drainer
+- **Guarantees (typical configuration)**:
+  - Preserves FIFO ordering per queue
+  - Supports at-least-once delivery (exactly-once requires idempotency at consumer)
+
+#### Backpressure via Semaphore (Producer Throttling)
+- Every enqueue must acquire a permit
+- A permit is released only after the task is fully processed (completion-ack)
+- Prevents unbounded memory growth and naturally throttles producers under load
+- Works as a single, central capacity control across:
+  - in-memory queue
+  - disk buffer
+  - executor backlog
+- Failure handling:
+  - If enqueue fails after acquiring a permit, the permit is released immediately
+  - Timeout-based acquisition can be used to avoid blocking forever
+
+#### Bounded ThreadPoolExecutor (Controlled Concurrency)
+- Fixed worker count (predictable throughput)
+- Fixed in-memory queue size (bounded latency and RAM)
+- Avoids dangerous unbounded executors (newCachedThreadPool, unbounded queues)
+- Rejection strategy is explicit and intentional:
+  - AbortPolicy for strict fail-fast
+  - or a custom handler that routes overflow to disk buffer
+- Supports clean instrumentation:
+  - active threads, queue depth, completed task count, rejection count
+
+#### Drainer Thread (Disk → Memory / Executor)
+- Independent from workers (separation of concerns)
+- Moves tasks from disk buffer into the bounded in-memory pipeline
+- Uses Condition.await() / signaling instead of polling:
+  - Signals when disk has new data
+  - Signals when capacity permits become available
+- CPU-efficient:
+  - Sleeps when there is nothing to drain or no capacity
+  - Wakes up only on meaningful events (new record / permit released / shutdown)
+- Safe batching (optional):
+  - Reads in small batches for throughput while respecting capacity bounds
+  - Avoids starving producers or executor queue
+
+#### Graceful Shutdown (Deterministic, No Surprise Loss)
+Shutdown sequence (recommended):
+1. Stop accepting new tasks (flip an accepting=false gate)
+2. Signal drainer to stop waiting and enter shutdown mode
+3. Drain disk queue (respecting permits and executor capacity)
+4. Stop drainer thread (join with timeout, then hard-stop fallback if needed)
+5. Shut down executor:
+    - shutdown() then awaitTermination(...)
+    - shutdownNow() only as last resort
+6. Flush/close file resources safely:
+    - ensure buffers are flushed (e.g., FileChannel.force(true) if required)
+    - persist read-offset/checkpoint
+7. Final consistency check:
+    - permits should return to full capacity (no leaks)
+    - disk segments should be fully acknowledged or remain replayable
+
+Result: **deterministic shutdown**, predictable behavior under load, and no silent data loss
+(when using at-least-once semantics + replayable disk buffer).
+
+
 
 ---
 
-## Design Decisions
+## Possible Extensions
 
-### Disk-Backed Queue
-- Disk acts as a **pressure buffer**, not the primary queue
-- Append-only file design
-- Thread-safe via explicit locking
-
-### Backpressure via Semaphore
-```java
-Semaphore permits = new Semaphore(capacity);
-```
-
-- Each task must acquire a permit
-- Permit is released only after task completion
-- Naturally slows producers under load
-
-### Bounded ThreadPoolExecutor
-
-- Fixed worker count
-- Fixed queue size
-- Avoids dangerous unbounded executors
-
-### Drainer Thread
-
-- Independent from workers
-- Uses `Condition.await()` instead of polling
-- CPU-efficient and scalable
-
-### Graceful Shutdown
-
-Shutdown sequence:
-
-1. Stop accepting new tasks
-2. Drain disk queue
-3. Stop drainer thread
-4. Shut down executor
-5. Close file resources
-
-Result: **no data loss and deterministic shutdown**
-
----
-
-## Running the Project
-
-### Kafka-Style System
-```bash
-java org.main.project.kafka_style_sys.MainExecutorClass
-```
-
-### Simple In-Memory System
-```bash
-java org.main.project.simple_msg_sys.MainClass
-```
-
----
-
-## Key Takeaways
-- Backpressure is essential for stability
-- Disk can act as a safety mechanism under load
-- Thread pools must be designed carefully
-- Shutdown logic is critical in concurrent systems
+This project is intentionally minimal and can be extended in many directions, such as:
+- Persistent storage (e.g. PostgreSQL, MongoDB)
+- Authentication and authorization
+- Message queues or async processing
+- Rate limiting or throttling
+- Monitoring and logging
+- WebSocket support
+- Automated testing (unit and integration)
+- UI/UX improvements

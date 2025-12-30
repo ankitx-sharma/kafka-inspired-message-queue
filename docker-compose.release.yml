@@ -1,0 +1,14 @@
+services:
+  backend:
+    image: ghcr.io/<OWNER>/<REPO>-backend:v1.0.0
+    container_name: messaging-backend
+    ports:
+      - "8080:8080"
+
+  ui:
+    image: ghcr.io/<OWNER>/<REPO>-ui:v1.0.0
+    container_name: messaging-ui
+    ports:
+      - "8081:80"
+    depends_on:
+      - backend

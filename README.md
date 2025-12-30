@@ -16,6 +16,42 @@ A **simple in-memory implementation** is included for comparison.
 
 ---
 
+## Technology Stack
+**Backend**
+- Java
+- Maven
+- RESTful API design
+
+**Frontend**
+- JavaScript / TypeScript
+- Modern frontend tooling (via npm)
+
+**Infrastructure**
+- Docker
+- Docker Compose
+
+---
+
+## Prerequisites
+Ensure the following tools are installed:
+- Java 17 or higher
+- Maven
+- Node.js 18 or higher
+- npm
+- Docker & Docker Compose
+
+## Running the Project
+**Option 1: Run with Docker (Recommended)**
+This is the easiest and most consistent way to run the entire system.
+```
+docker-compose up --build
+```
+**Once started:**
+- Backend API: http://localhost:8080
+- Frontend UI: http://localhost:5173
+
+---
+
 ## Key Concepts
 - Backpressure using `Semaphore`
 - Bounded `ThreadPoolExecutor`
@@ -56,23 +92,33 @@ A **simple in-memory implementation** is included for comparison.
 
 ## Project Structure
 ```
-src/
-└── org.main.project
-├── kafka_style_sys
-│ ├── MainExecutorClass.java
-│ ├── worker
-│ │ └── WorkerThreadPool.java
-│ ├── service
-│ │ ├── DiskQueue.java
-│ │ ├── FileDiskQueue.java
-│ │ └── IndexMapService.java
-│ └── record
-│ └── DiskRecord.java
-│
-└── simple_msg_sys
-├── MainClass.java
-└── inmemsys
-└── InMemorySystem.java
+.
+├── messaging-api/        # Backend REST API (Java)
+├── messaging-engine/     # Backend Message Processing Engine (Java)
+├── messaging-ui/         # Frontend Web UI
+├── docker-compose.yml    # Unified setup for local development
+├── .project
+└── README.md
+
+
+messaging-engine/
+└── src/
+  └── org.main.project
+  ├── kafka_style_sys
+  │ ├── MainExecutorClass.java
+  │ ├── worker
+  │ │ └── WorkerThreadPool.java
+  │ ├── service
+  │ │ ├── DiskQueue.java
+  │ │ ├── FileDiskQueue.java
+  │ │ └── IndexMapService.java
+  │ └── record
+  │ └── DiskRecord.java
+  │
+  └── simple_msg_sys
+  ├── MainClass.java
+  └── inmemsys
+  └── InMemorySystem.java
 ```
 
 ---
